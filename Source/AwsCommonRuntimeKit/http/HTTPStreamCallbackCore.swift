@@ -23,10 +23,12 @@ class HTTPStreamCallbackCore {
     /// to keep it until until on_destroy callback has fired which will do the release.
     /// If you fail to create something that uses the aws_http_make_request_options,
     /// you must call release() to avoid leaking memory.
-    func getRetainedHttpMakeRequestOptions() -> aws_http_make_request_options {
+
+    func withRetainedHttpMakeRequestOptions<Result>(
+            version: HTTPVersion,
+            _ body: (aws_http_make_request_options) throws -> Result) throws -> Result {
         var options = aws_http_make_request_options()
         options.self_size = MemoryLayout<aws_http_make_request_options>.size
-        options.request = requestOptions.request.rawValue
         options.on_response_body = onResponseBody
         options.on_response_headers = onResponseHeaders
         options.on_response_header_block_done = onResponseHeaderBlockDone
@@ -34,7 +36,11 @@ class HTTPStreamCallbackCore {
         options.on_destroy = onDestroy
         options.user_data = getRetainedSelf()
         options.http2_use_manual_data_writes = requestOptions.http2ManualDataWrites
-        return options
+
+        return try requestOptions.request.withHTTPRequest(version: version) { rawRequest in
+            options.request = rawRequest
+            return try body(options)
+        }
     }
 
     /// Manually release the reference If you fail to create something that uses the HTTPStreamCallbackDataCore

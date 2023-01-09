@@ -272,14 +272,19 @@ struct Elasticurl {
             headers.append(HTTPHeader(name: "User-Agent", value: "Elasticurl"))
             headers.append(HTTPHeader(name: "Accept", value: "*/*"))
             headers.append(HTTPHeader(name: "Swift", value: "Version 5.4"))
-
+            var body: IStreamable? = nil
             if let data = context.data {
                 let byteBuffer = ByteBuffer(data: data)
-                httpRequest.body = byteBuffer
+                body = byteBuffer
                 headers.append(HTTPHeader(name: "Content-length", value: "\(data.count)"))
             }
             httpRequest.addHeaders(headers: headers)
 
+            let httpRequestNew = HTTPRequestNew(
+                    method: context.verb,
+                    destination: context.url,
+                    headers: headers,
+                    body: body)
             let onIncomingHeaders: HTTPRequestOptions.OnIncomingHeaders = { _, _, headers in
                 for header in headers {
                     print(header.name + " : " + header.value)
@@ -312,7 +317,7 @@ struct Elasticurl {
             let connectionManager = try HTTPClientConnectionManager(options: httpClientOptions)
             do {
                 let connection = try await connectionManager.acquireConnection()
-                let requestOptions = HTTPRequestOptions(request: httpRequest,
+                let requestOptions = HTTPRequestOptions(request: httpRequestNew,
                                                         onIncomingHeaders: onIncomingHeaders,
                                                         onIncomingHeadersBlockDone: onBlockDone,
                                                         onIncomingBody: onBody,

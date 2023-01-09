@@ -32,15 +32,22 @@ public class HTTP2StreamManager {
             let acquireStreamCore = HTTP2AcquireStreamCore(
                 continuation: continuation,
                 callbackCore: httpStreamCallbackCore)
-            let requestOptions = httpStreamCallbackCore.getRetainedHttpMakeRequestOptions()
+            do {
+                try httpStreamCallbackCore.withRetainedHttpMakeRequestOptions(
+                        version: .version_2) { requestOptions in
+                    var options = aws_http2_stream_manager_acquire_stream_options()
+                    options.callback = onStreamAcquired
+                    options.user_data = acquireStreamCore.passRetained()
+                    withUnsafePointer(to: requestOptions, { requestOptionsPointer in
+                        options.options = requestOptionsPointer
+                        aws_http2_stream_manager_acquire_stream(rawValue, &options)
+                    })
+                }
+            } catch {
+                httpStreamCallbackCore.release()
+                continuation.resume(throwing: error)
+            }
 
-            var options = aws_http2_stream_manager_acquire_stream_options()
-            options.callback = onStreamAcquired
-            options.user_data = acquireStreamCore.passRetained()
-            withUnsafePointer(to: requestOptions, { requestOptionsPointer in
-                options.options = requestOptionsPointer
-                aws_http2_stream_manager_acquire_stream(rawValue, &options)
-            })
         })
     }
 
@@ -60,10 +67,6 @@ private class HTTP2AcquireStreamCore {
 
     func passRetained() -> UnsafeMutableRawPointer {
         Unmanaged.passRetained(self).toOpaque()
-    }
-
-    func release() {
-        Unmanaged.passUnretained(self).release()
     }
 }
 

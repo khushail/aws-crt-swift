@@ -14,9 +14,12 @@ public class HTTP2ClientConnection: HTTPClientConnection {
     override public func makeRequest(requestOptions: HTTPRequestOptions) throws -> HTTP2Stream {
         let httpStreamCallbackCore = HTTPStreamCallbackCore(requestOptions: requestOptions)
         do {
-            return try HTTP2Stream(httpConnection: self,
-                                   options: httpStreamCallbackCore.getRetainedHttpMakeRequestOptions(),
-                                   callbackData: httpStreamCallbackCore)
+            return try httpStreamCallbackCore.withRetainedHttpMakeRequestOptions(version: httpVersion) { request in
+                try HTTP2Stream(
+                        httpConnection: self,
+                        options: request,
+                        callbackData: httpStreamCallbackCore)
+            }
         } catch {
             httpStreamCallbackCore.release()
             throw error

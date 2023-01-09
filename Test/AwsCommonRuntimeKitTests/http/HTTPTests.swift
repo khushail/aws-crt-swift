@@ -8,25 +8,30 @@ import AwsCHttp
 
 class HTTPTests: HTTPClientTestFixture {
     let host = "httpbin.org"
-    let getPath = "/get"
+    let destination = URL(string: "https://httpbin.org/get")!
 
     func testGetHTTPSRequest() async throws {
+        let test: URL
         let connectionManager = try await getHttpConnectionManager(endpoint: host, ssh: true, port: 443)
-        _ = try await sendHTTPRequest(method: "GET", endpoint: host, path: getPath, connectionManager: connectionManager)
-        _ = try await sendHTTPRequest(method: "GET", endpoint: host, path: "/delete", expectedStatus: 405, connectionManager: connectionManager)
+        do {
+            _ = try await sendHTTPRequest(method: "GET", destination: destination, connectionManager: connectionManager)
+        } catch {
+            print ("waahm7\(error)")
+            throw error
+        }
+            _ = try await sendHTTPRequest(method: "GET", destination: URL(string: "https://httpbin.org/delete")!, expectedStatus: 405, connectionManager: connectionManager)
     }
 
     func testGetHTTPRequest() async throws {
         let connectionManager = try await getHttpConnectionManager(endpoint: host, ssh: false, port: 80)
-        _ = try await sendHTTPRequest(method: "GET", endpoint: host, path: getPath, connectionManager: connectionManager)
+        _ = try await sendHTTPRequest(method: "GET", destination: destination, connectionManager: connectionManager)
     }
 
     func testPutHttpRequest() async throws {
         let connectionManager = try await getHttpConnectionManager(endpoint: host, ssh: true, port: 443)
         let response = try await sendHTTPRequest(
                 method: "PUT",
-                endpoint: host,
-                path: "/anything",
+                destination: URL(string: "https://httpbin.org/anything")!,
                 body: TEST_DOC_LINE,
                 connectionManager: connectionManager)
 
@@ -40,7 +45,9 @@ class HTTPTests: HTTPClientTestFixture {
 
     func testHTTPStreamIsReleasedIfNotActivated() async throws {
         do {
-            let httpRequestOptions = try getHTTPRequestOptions(method: "GET", endpoint: host, path: getPath)
+
+
+            let httpRequestOptions = try getHTTPRequestOptions(method: "GET", destination: destination, headers: [HTTPHeader(name: "host", value: destination.host!)])
             let connectionManager = try await getHttpConnectionManager(endpoint: host, ssh: true, port: 443)
             let connection = try await connectionManager.acquireConnection()
             _ = try connection.makeRequest(requestOptions: httpRequestOptions)
@@ -53,7 +60,7 @@ class HTTPTests: HTTPClientTestFixture {
         let semaphore = DispatchSemaphore(value: 0)
 
         do {
-            let httpRequestOptions = try getHTTPRequestOptions(method: "GET", endpoint: host, path: getPath, semaphore: semaphore)
+            let httpRequestOptions = try getHTTPRequestOptions(method: "GET", destination: destination, semaphore: semaphore)
             let connectionManager = try await getHttpConnectionManager(endpoint: host, ssh: true, port: 443)
             let connection = try await connectionManager.acquireConnection()
             let stream = try connection.makeRequest(requestOptions: httpRequestOptions)
@@ -70,7 +77,7 @@ class HTTPTests: HTTPClientTestFixture {
             let connectionManager = try await getHttpConnectionManager(endpoint: host, ssh: true, port: 443)
             connection = try await connectionManager.acquireConnection()
         }
-        let httpRequestOptions = try getHTTPRequestOptions(method: "GET", endpoint: host, path: getPath, semaphore: semaphore)
+        let httpRequestOptions = try getHTTPRequestOptions(method: "GET", destination: destination, semaphore: semaphore, headers: [HTTPHeader(name: "host", value: destination.host!)])
         let stream = try connection.makeRequest(requestOptions: httpRequestOptions)
         try stream.activate()
         semaphore.wait()
@@ -83,7 +90,7 @@ class HTTPTests: HTTPClientTestFixture {
         do {
             let connectionManager = try await getHttpConnectionManager(endpoint: host, ssh: true, port: 443)
             let connection = try await connectionManager.acquireConnection()
-            let httpRequestOptions = try getHTTPRequestOptions(method: "GET", endpoint: host, path: getPath, semaphore: semaphore)
+            let httpRequestOptions = try getHTTPRequestOptions(method: "GET", destination: destination, semaphore: semaphore)
             stream = try connection.makeRequest(requestOptions: httpRequestOptions)
         }
         try stream.activate()
@@ -94,14 +101,14 @@ class HTTPTests: HTTPClientTestFixture {
         let connectionManager = try await getHttpConnectionManager(endpoint: host, ssh: true, port: 443)
         let connection = try await connectionManager.acquireConnection()
         connection.close()
-        let httpRequestOptions = try getHTTPRequestOptions(method: "GET", endpoint: host, path: getPath)
+        let httpRequestOptions = try getHTTPRequestOptions(method: "GET", destination: destination)
         XCTAssertThrowsError( _ = try connection.makeRequest(requestOptions: httpRequestOptions))
     }
 
     func testConnectionCloseActivateThrow() async throws {
         let connectionManager = try await getHttpConnectionManager(endpoint: host, ssh: true, port: 443)
         let connection = try await connectionManager.acquireConnection()
-        let httpRequestOptions = try getHTTPRequestOptions(method: "GET", endpoint: host, path: getPath)
+        let httpRequestOptions = try getHTTPRequestOptions(method: "GET", destination: destination)
         let stream = try connection.makeRequest(requestOptions: httpRequestOptions)
         connection.close()
         XCTAssertThrowsError(try stream.activate())
@@ -110,7 +117,7 @@ class HTTPTests: HTTPClientTestFixture {
     func testConnectionCloseIsIdempotent() async throws {
         let connectionManager = try await getHttpConnectionManager(endpoint: host, ssh: true, port: 443)
         let connection = try await connectionManager.acquireConnection()
-        let httpRequestOptions = try getHTTPRequestOptions(method: "GET", endpoint: host, path: getPath)
+        let httpRequestOptions = try getHTTPRequestOptions(method: "GET", destination: destination)
         let stream = try connection.makeRequest(requestOptions: httpRequestOptions)
         connection.close()
         connection.close()
