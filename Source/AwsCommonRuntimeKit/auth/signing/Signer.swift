@@ -3,6 +3,7 @@
 
 import AwsCAuth
 import Foundation
+import AwsCHttp
 
 public class Signer {
 
@@ -30,18 +31,26 @@ public class Signer {
     /// - `Throws`: An error of type `AwsCommonRuntimeError` which will pull last error found in the CRT
     /// - `Returns`: Returns a signed http request `HttpRequest`
     public static func signRequest(
-        request: HTTPRequestBase,
+        request: HTTPRequestNew,
         config: SigningConfig,
-        allocator: Allocator = defaultAllocator) async throws -> HTTPRequestBase {
+        allocator: Allocator = defaultAllocator) async throws -> HTTPRequestNew {
 
-        guard let signable = aws_signable_new_http_request(allocator.rawValue, request.rawValue) else {
+        let rawValue: UnsafeMutablePointer!
+        try request.withHTTP1Request { requestPointer in
+            rawValue = aws_http_message_acquire(requestPointer)
+        }
+        defer {
+            aws_http_message_release(rawValue)
+        }
+
+        guard let signable = aws_signable_new_http_request(allocator.rawValue, rawValue) else {
             throw CommonRunTimeError.crtError(.makeFromLastError())
         }
         defer {
             aws_signable_destroy(signable)
         }
 
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<
+        let rawSigned = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<
                                                                 HTTPRequestBase,
                                                                 Error>) in
             let signRequestCore = SignRequestCore(request: request,
@@ -71,16 +80,43 @@ public class Signer {
                 }
             }
         }
+
+        let signedHTTPRequest = request
+
+        signedHTTPRequest.destination.path = rawSigned.path
+        signedHTTPRequest.headers = rawSigned.headers
+
+    }
+}
+
+extension aws_http_message {
+    var path: String {
+        var path = aws_byte_cursor()
+        _ = aws_http_message_get_request_path(self, &path)
+        return path.toString()
+    }
+
+    var headers: [HTTPHeader] {
+        var headers = [HTTPHeader]()
+        var header = aws_http_header()
+        for index in 0..<headerCount {
+            if aws_http_message_get_header(self, &header, index) == AWS_OP_SUCCESS {
+                headers.append(HTTPHeader(rawValue: header))
+            } else {
+                fatalError("Index is invalid")
+            }
+        }
+        return headers
     }
 }
 
 class SignRequestCore {
     let allocator: Allocator
-    let request: HTTPRequestBase
-    var continuation: CheckedContinuation<HTTPRequestBase, Error>
+    let request: HTTPRequestNew
+    var continuation: CheckedContinuation<HTTPRequestNew, Error>
     let shouldSignHeader: ((String) -> Bool)?
-    init(request: HTTPRequestBase,
-         continuation: CheckedContinuation<HTTPRequestBase, Error>,
+    init(request: HTTPRequestNew,
+         continuation: CheckedContinuation<HTTPRequestNew, Error>,
          shouldSignHeader: ((String) -> Bool)? = nil,
          allocator: Allocator) {
         self.allocator = allocator
@@ -111,12 +147,14 @@ private func onSigningComplete(signingResult: UnsafeMutablePointer<aws_signing_r
         return
     }
 
+    let rawSigned = aws_http_message_new_request(signRequestCore.allocator.rawValue)
+
     // Success
-    let signedRequest = aws_apply_signing_result_to_http_request(signRequestCore.request.rawValue,
+    let signedRequest = aws_apply_signing_result_to_http_request(rawSigned,
                                                                  signRequestCore.allocator.rawValue,
                                                                  signingResult!)
     if signedRequest == AWS_OP_SUCCESS {
-        signRequestCore.continuation.resume(returning: signRequestCore.request)
+        signRequestCore.continuation.resume(returning: rawSigned!.pointee)
     } else {
         signRequestCore.continuation.resume(throwing: CommonRunTimeError.crtError(.makeFromLastError()))
     }
