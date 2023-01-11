@@ -3,7 +3,6 @@
 
 import XCTest
 @testable import AwsCommonRuntimeKit
-import AwsCHttp
 
 struct HTTPResponse {
     var statusCode: Int = -1
@@ -154,7 +153,9 @@ class HTTPClientTestFixture: XCBaseTestCase {
                 },
                 onStreamComplete: { stream, error in
                     response?.pointee.error = error
-                    print("waahm7error:\(error)")
+                    if error != nil {
+                        print("AWS_TEST_ERROR:\(String(describing: error))")
+                    }
                     response?.pointee.statusCode = (try? stream.statusCode()) ?? -1
                     onComplete?(stream, error)
                     semaphore?.signal()

@@ -6,7 +6,7 @@ import AwsCHttp
 
 class HTTPMessageTests: XCBaseTestCase {
     func testAddHeaders() throws {
-        let httpMessage = try HTTPRequestBase(
+        let httpMessage = HTTPRequestBase(
                 rawValue: aws_http_message_new_request(allocator.rawValue)!,
                 allocator: allocator)
         httpMessage.addHeaders(headers: [
@@ -19,7 +19,7 @@ class HTTPMessageTests: XCBaseTestCase {
         let headers = [
             HTTPHeader(name: "header1", value: "value1"),
             HTTPHeader(name: "header2", value: "value2")]
-        let httpMessage = try HTTPRequestBase(
+        let httpMessage = HTTPRequestBase(
                 rawValue: aws_http_message_new_request(allocator.rawValue)!,
                 allocator: allocator)
         httpMessage.addHeaders(headers: headers)
@@ -31,7 +31,7 @@ class HTTPMessageTests: XCBaseTestCase {
         let headers = [
             HTTPHeader(name: "header1", value: "value1"),
             HTTPHeader(name: "header2", value: "value2")]
-        let httpMessage = try HTTPRequestBase(
+        let httpMessage = HTTPRequestBase(
                 rawValue: aws_http_message_new_request(allocator.rawValue)!,
                 allocator: allocator)
         httpMessage.addHeaders(headers: headers)
@@ -45,7 +45,7 @@ class HTTPMessageTests: XCBaseTestCase {
         let headers = [
             HTTPHeader(name: "header1", value: "value1"),
             HTTPHeader(name: "header2", value: "value2")]
-        let httpMessage = try HTTPRequestBase(
+        let httpMessage = HTTPRequestBase(
                 rawValue: aws_http_message_new_request(allocator.rawValue)!,
                 allocator: allocator)
         httpMessage.addHeaders(headers: headers)
@@ -61,7 +61,7 @@ class HTTPMessageTests: XCBaseTestCase {
         let headers = [
             HTTPHeader(name: "header1", value: "value1"),
             HTTPHeader(name: "header2", value: "value2")]
-        let httpMessage = try HTTPRequestBase(
+        let httpMessage = HTTPRequestBase(
                 rawValue: aws_http_message_new_request(allocator.rawValue)!,
                 allocator: allocator)
         httpMessage.addHeaders(headers: headers)
@@ -74,7 +74,7 @@ class HTTPMessageTests: XCBaseTestCase {
         let headers = [
             HTTPHeader(name: "header1", value: "value1"),
             HTTPHeader(name: "header2", value: "value2")]
-        let httpMessage = try HTTPRequestBase(
+        let httpMessage = HTTPRequestBase(
                 rawValue: aws_http_message_new_request(allocator.rawValue)!,
                 allocator: allocator)
         httpMessage.addHeaders(headers: headers)
@@ -88,7 +88,7 @@ class HTTPMessageTests: XCBaseTestCase {
         let headers = [
             HTTPHeader(name: "header1", value: "value1"),
             HTTPHeader(name: "header2", value: "value2")]
-        let httpMessage = try HTTPRequestBase(
+        let httpMessage = HTTPRequestBase(
                 rawValue: aws_http_message_new_request(allocator.rawValue)!,
                 allocator: allocator)
         httpMessage.addHeaders(headers: headers)

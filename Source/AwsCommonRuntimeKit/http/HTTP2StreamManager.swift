@@ -10,11 +10,8 @@ public class HTTP2StreamManager {
         let shutdownCallbackCore = ShutdownCallbackCore(options.shutdownCallback)
         let shutdownOptions = shutdownCallbackCore.getRetainedShutdownOptions()
         guard let rawValue: UnsafeMutablePointer<aws_http2_stream_manager> = (
-                options.withCStruct(shutdownOptions: shutdownOptions) { managerOptions in
-                    // TODO: update after adding const in C
-                    var managerOptions = managerOptions
-                    return withUnsafeMutablePointer(
-                        to: &managerOptions) { aws_http2_stream_manager_new(allocator.rawValue, $0)}
+                options.withCPointer(shutdownOptions: shutdownOptions) { managerOptions in
+                    aws_http2_stream_manager_new(allocator.rawValue, managerOptions)
                 }) else {
             shutdownCallbackCore.release()
             throw CommonRunTimeError.crtError(.makeFromLastError())
@@ -23,6 +20,7 @@ public class HTTP2StreamManager {
     }
 
     /// Acquires an `HTTP2Stream` asynchronously.
+    /// There is no need to call activate.
     /// - Parameter requestOptions: The Request to make to the Server.
     /// - Returns: HTTP2Stream when the stream is acquired
     /// - Throws: CommonRunTimeError.crtError

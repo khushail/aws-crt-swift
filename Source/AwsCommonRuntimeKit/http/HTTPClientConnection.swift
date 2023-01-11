@@ -58,12 +58,9 @@ public class HTTPClientConnection: HTTPExchange {
     public func makeRequest(requestOptions: HTTPRequestOptions) throws -> HTTPStream {
         let httpStreamCallbackCore = HTTPStreamCallbackCore(requestOptions: requestOptions)
         do {
-            return try httpStreamCallbackCore.withRetainedHttpMakeRequestOptions(version: httpVersion) { request in
-                try HTTPStream(
-                        httpConnection: self,
-                        options: request,
-                        callbackData: httpStreamCallbackCore)
-            }
+            return try HTTP1Stream(httpConnection: self,
+                                   options: httpStreamCallbackCore.getRetainedHttpMakeRequestOptions(),
+                                   callbackData: httpStreamCallbackCore)
         } catch {
             httpStreamCallbackCore.release()
             throw error

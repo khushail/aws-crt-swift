@@ -103,8 +103,8 @@ class HTT2StreamManagerTests: HTTPClientTestFixture {
     }
 
     func testHTTP2Stream() async throws {
-        let streamManager = try makeStreamManger(host: url.host!)
-        _ = try await sendHTTP2Request(method: "GET", destination: url, streamManager: streamManager, http2ManualDataWrites: true)
+        let streamManager = try makeStreamManger(host: endpoint)
+        _ = try await sendHTTP2Request(method: "GET", path: path, authority: endpoint, streamManager: streamManager)
     }
 
     func testHTTP2StreamUpload() async throws {
@@ -114,9 +114,12 @@ class HTT2StreamManagerTests: HTTPClientTestFixture {
         var httpResponse = HTTPResponse()
         var onCompleteCalled = false
 
-        let http2RequestOptions = try getHTTPRequestOptions(
+        let testBody = "testBody"
+        let http2RequestOptions = try getHTTP2RequestOptions(
                 method: "PUT",
-                destination: url,
+                path: "/httpbin/put",
+                authority: "nghttp2.org",
+                body: testBody,
                 response: &httpResponse,
                 semaphore: semaphore,
                 onComplete: { stream, error in
@@ -148,26 +151,28 @@ class HTT2StreamManagerTests: HTTPClientTestFixture {
         }
 
         let body: Response = try! JSONDecoder().decode(Response.self, from: httpResponse.body)
-        XCTAssertEqual(body.data, TEST_DOC_LINE)
+        XCTAssertEqual(body.data, testBody + TEST_DOC_LINE)
     }
 
     func testHTTP2ParallelStreams() async throws {
-        try await testHTTP2ParallelStreams(count: 5)
+        try await testHTTP2ParallelStreams(count: 10)
     }
 
     func testHTTP2ParallelStreams(count: Int) async throws {
-        let streamManager = try makeStreamManger(host: url.host!)
+
+        let streamManager = try makeStreamManger(host: "nghttp2.org")
         let requestCompleteExpectation = XCTestExpectation(description: "Request was completed successfully")
         requestCompleteExpectation.expectedFulfillmentCount = count
         await withTaskGroup(of: Void.self) { taskGroup in
             for _ in 1...count {
                 taskGroup.addTask {
-                    _ = try! await self.sendHTTP2Request(method: "GET", destination: self.url, streamManager: streamManager, onComplete: { stream, error in
+                    _ = try! await self.sendHTTP2Request(method: "GET", path: "/httpbin/get", authority: "nghttp2.org", streamManager: streamManager, onComplete: { stream, error in
                         requestCompleteExpectation.fulfill()
                     })
                 }
             }
         }
         wait(for: [requestCompleteExpectation], timeout: 15)
+        print("Request were successfully completed.")
     }
 }
