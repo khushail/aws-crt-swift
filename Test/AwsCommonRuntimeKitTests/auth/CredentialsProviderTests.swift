@@ -31,6 +31,18 @@ class CredentialsProviderTests: XCBaseTestCase {
         XCTAssertEqual(sessionToken, credentials.getSessionToken())
     }
 
+    func testCreateCredentialsProviderImds2() async throws {
+        do {
+            let provider = try CredentialsProvider(source: .imds(bootstrap: getClientBootstrap(),
+                    shutdownCallback: getShutdownCallback()),
+                    allocator: allocator)
+            let credentials = try await provider.getCredentials()
+            XCTAssertNotNil(credentials)
+            print("waahm7 \(credentials.getAccessKey())")
+        }
+        wait(for: [shutdownWasCalled], timeout: 15)
+    }
+
     func getClientBootstrap() throws -> ClientBootstrap {
         let elg = try EventLoopGroup(threadCount: 0, allocator: allocator)
         let hostResolver = try HostResolver(eventLoopGroup: elg,
