@@ -98,3 +98,25 @@ private func doGetLength(_ stream: UnsafeMutablePointer<aws_input_stream>!,
         return aws_raise_error(Int32(AWS_IO_STREAM_GET_LENGTH_FAILED.rawValue))
     }
 }
+
+fileprivate class Box<ResultType> {
+    var result: Result<ResultType, Error>? = nil
+}
+
+/// Unsafely awaits an async function from a synchronous context.
+@available(*, deprecated, message: "Migrate to structured concurrency")
+public func _unsafeWait<ResultType>(_ f: @escaping () async throws -> ResultType) throws -> ResultType {
+    let box = Box<ResultType>()
+    let sema = DispatchSemaphore(value: 0)
+    Task {
+        do {
+            let val = try await f()
+            box.result = .success(val)
+        } catch {
+            box.result = .failure(error)
+        }
+        sema.signal()
+    }
+    sema.wait()
+    return try box.result!.get()
+}

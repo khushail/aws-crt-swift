@@ -153,7 +153,17 @@ public enum SignatureType {
     /// the signable should contain the most recent signature value (either the original http request or the most recent
     /// chunk) in the "previous-signature" property.
     case requestTrailingHeaders
+    
+    case requestEvent
 }
+
+//public  enum SignatureType {
+//    case httpRequestViaHeaders
+//    case httpRequestViaQueryParams
+//    case httpRequestChunk
+//    case httpRequestTrailingHeaders
+//    case httpRequestEvent
+//}
 
 public enum SignedBodyHeaderType {
 
@@ -204,6 +214,7 @@ extension SignatureType: RawRepresentable, CaseIterable {
         case .requestQueryParams: return AWS_ST_HTTP_REQUEST_QUERY_PARAMS
         case .requestChunk: return AWS_ST_HTTP_REQUEST_CHUNK
         case .requestTrailingHeaders: return AWS_ST_HTTP_REQUEST_TRAILING_HEADERS
+        case .requestEvent: return AWS_ST_HTTP_REQUEST_EVENT
         }
     }
 }

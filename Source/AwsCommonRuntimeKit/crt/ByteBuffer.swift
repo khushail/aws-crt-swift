@@ -6,7 +6,11 @@ import AwsCIo
 import AwsCCal
 
 /// ByteBuffer represents a Data object with a current index and conforms to IStreamable protocol.
-public final class ByteBuffer {
+public final class ByteBuffer: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        String(data: data, encoding: .utf8) ?? ""
+    }
+    
 
     private let data: Data
     private var currentIndex: Data.Index
