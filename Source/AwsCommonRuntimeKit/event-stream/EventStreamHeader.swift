@@ -4,6 +4,82 @@
 import AwsCEventStream
 import Foundation
 
+extension Data {
+    
+    public func toBytes() -> [UInt8] {
+        var bytes = [UInt8](repeating: 0, count: self.count)
+        self.copyBytes(to:&bytes, count: self.count * MemoryLayout<UInt8>.size)
+        return bytes
+    }
+}
+
+func _convertToBytes<T>(_ value: T, withCapacity capacity: Int) -> [UInt8] {
+    
+    var mutableValue = value
+    return withUnsafePointer(to: &mutableValue) {
+        
+        return $0.withMemoryRebound(to: UInt8.self, capacity: capacity) {
+            
+            return Array(UnsafeBufferPointer(start: $0, count: capacity))
+        }
+    }
+}
+
+extension UnsignedInteger {
+    
+    var bytes: [UInt8] {
+        
+        return _convertToBytes(self, withCapacity: MemoryLayout<Self>.size)
+    }
+    
+    init?(_ bytes: [UInt8]) {
+        
+        guard bytes.count == MemoryLayout<Self>.size else { return nil }
+        
+        self = bytes.withUnsafeBytes {
+            
+            return $0.load(as: Self.self)
+        }
+    }
+}
+
+extension SignedInteger {
+    
+    var bytes: [UInt8] {
+        
+        return _convertToBytes(self, withCapacity: MemoryLayout<Self>.size)
+    }
+    
+    init?(_ bytes: [UInt8]) {
+        
+        guard bytes.count == MemoryLayout<Self>.size else { return nil }
+        
+        self = bytes.withUnsafeBytes {
+            
+            return $0.load(as: Self.self)
+        }
+    }
+}
+
+extension FloatingPoint {
+    
+    var bytes: [UInt8] {
+        
+        return _convertToBytes(self, withCapacity: MemoryLayout<Self>.size)
+    }
+    
+    init?(_ bytes: [UInt8]) {
+        
+        guard bytes.count == MemoryLayout<Self>.size else { return nil }
+        
+        self = bytes.withUnsafeBytes {
+            
+            return $0.load(as: Self.self)
+        }
+    }
+}
+
+
 public struct EventStreamHeader {
     /// max header name length is 127 bytes (Int8.max)
     public static let maxNameLength = AWS_EVENT_STREAM_HEADER_NAME_LEN_MAX
@@ -19,6 +95,17 @@ public struct EventStreamHeader {
     public init(name: String, value: EventStreamHeaderValue) {
         self.name = name
         self.value = value
+    }
+
+    public func getEncodedSwift() throws -> Data {
+        var encoded = Data()
+        let nameBytes = name.data(using: .utf8)!
+        let nameBytesCount = Int32(nameBytes.count)
+        encoded.append(contentsOf: nameBytesCount.bigEndian.bytes)
+        encoded.append(nameBytes)
+        encoded.append(try value.getEncodedSwift())
+        
+        return encoded
     }
 }
 
@@ -36,6 +123,28 @@ public enum EventStreamHeaderValue: Equatable {
     /// It will lose the sub-millisecond precision during encoding.
     case timestamp(value: Date)
     case uuid(value: UUID)
+
+    public func getEncodedSwift() throws -> Data {
+        var encoded = Data()
+        switch self {
+        case .byteBuf(let value):
+            encoded.append(contentsOf: Int32(6).bigEndian.bytes)
+            encoded.append(contentsOf: Int32(value.count).bigEndian.bytes)
+            encoded.append(value)
+        case .string(let value):
+            encoded.append(contentsOf: Int32(7).bigEndian.bytes)
+            encoded.append(contentsOf: Int32(value.count).bigEndian.bytes)
+            encoded.append(value.data(using: .utf8)!)
+        case .timestamp(let value):
+            encoded.append(contentsOf: Int32(8).bigEndian.bytes)
+            let milliseconds = Int64(value.timeIntervalSince1970 * 1000)
+            encoded.append(contentsOf: milliseconds.bigEndian.bytes)
+        default:
+                fatalError()
+        }
+        
+        return encoded
+    }
 }
 
 extension EventStreamHeaderValue {

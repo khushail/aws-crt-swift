@@ -4,11 +4,15 @@
 import AwsCEventStream
 import Foundation
 
+extension Data {
+    
+}
+
 public struct EventStreamMessage {
     var headers: [EventStreamHeader] = [EventStreamHeader]()
     var payload: Data = Data()
     var allocator: Allocator = defaultAllocator
-
+    
     public init(headers: [EventStreamHeader] = [EventStreamHeader](),
                 payload: Data = Data(),
                 allocator: Allocator = defaultAllocator) {
@@ -16,7 +20,7 @@ public struct EventStreamMessage {
         self.payload = payload
         self.allocator = allocator
     }
-
+    
     /// Get the binary format of this message (i.e. for sending across the wire manually)
     /// - Returns:  binary Data.
     public func getEncoded() throws -> Data {
@@ -26,14 +30,14 @@ public struct EventStreamMessage {
             aws_event_stream_headers_list_cleanup(&rawHeaders)
             aws_event_stream_message_clean_up(&rawValue)
         }
-
+        
         guard aws_event_stream_headers_list_init(&rawHeaders, allocator.rawValue) == AWS_OP_SUCCESS else {
             throw CommonRunTimeError.crtError(.makeFromLastError())
         }
         try headers.forEach {
             try addHeader(header: $0, rawHeaders: &rawHeaders)
         }
-
+        
         guard payload.withAWSByteBufPointer({ byteBuff in
             // TODO (optimization): we could avoid the extra copies of headers and data
             // if there were an API in C that let us encode everything directly into a pre-allocated buffer
@@ -41,10 +45,67 @@ public struct EventStreamMessage {
         }) == AWS_OP_SUCCESS else {
             throw CommonRunTimeError.crtError(.makeFromLastError())
         }
-
+        
         return Data(
             bytes: aws_event_stream_message_buffer(&rawValue),
             count: Int(aws_event_stream_message_total_length(&rawValue)))
+    }
+    
+    public func getEncodedSwift() throws -> Data {
+        let PRELUDE_BYTE_LEN: Int32 = 8
+        let PRELUDE_BYTE_LEN_WITH_CRC: Int32 = PRELUDE_BYTE_LEN + 4
+        let MESSAGE_CRC_BYTE_LEN: Int32 = 4
+        var encoded = Data()
+        let headersBuffer = try getEncodedHeaders()
+        let headersLen = Int32(headersBuffer.count)
+        let payloadLen = Int32(payload.count)
+        
+        // total bytes length
+        let totalBytesLen = Int32(PRELUDE_BYTE_LEN_WITH_CRC + headersLen + payloadLen + MESSAGE_CRC_BYTE_LEN)
+        encoded.append(contentsOf: totalBytesLen.bigEndian.bytes)
+        
+        // headers length
+        encoded.append(contentsOf: headersLen.bigEndian.bytes)
+        
+        let preludeCRC = Data(totalBytesLen.bigEndian.bytes + headersLen.bigEndian.bytes).checksum()
+        encoded.append(contentsOf: Int32(preludeCRC).bigEndian.bytes)
+        
+        // headers
+        encoded.append(headersBuffer)
+        
+        // payload
+        encoded.append(payload)
+        
+        // message CRC
+        let messageCRC = encoded.checksum()
+        encoded.append(contentsOf: messageCRC.bytes)
+        
+        return encoded
+    }
+    
+    private func getEncodedHeaders() throws -> Data {
+        var encoded = Data()
+        for header in headers {
+            encoded.append(try header.getEncodedSwift())
+        }
+        return encoded
+    }
+}
+
+
+public extension Data {
+    func checksum() -> UInt32 {
+        let table: [UInt32] = {
+            (0...255).map { i -> UInt32 in
+                (0..<8).reduce(UInt32(i), { c, _ in
+                    (c % 2 == 0) ? (c >> 1) : (0xEDB88320 ^ (c >> 1))
+                })
+            }
+        }()
+        
+        return ~(self.reduce(~UInt32(0), { crc, byte in
+            (crc >> 8) ^ table[(Int(crc) ^ Int(byte)) & 0xFF]
+        }))
     }
 }
 
@@ -137,7 +198,7 @@ extension EventStreamMessage {
                 }
             }
         }
-
+        
         guard try addCHeader() == AWS_OP_SUCCESS else {
             throw CommonRunTimeError.crtError(.makeFromLastError())
         }
