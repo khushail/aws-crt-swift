@@ -57,14 +57,13 @@ public class HTTP2Stream: HTTPStream {
                 allocator: callbackData.requestOptions.request.allocator)
             options.data = stream.rawValue
             options.user_data = continuationCore.passRetained()
-            guard aws_http2_stream_write_data(
-                    rawValue,
-                    &options) == AWS_OP_SUCCESS else {
+            
+            let op = aws_http2_stream_write_data(rawValue, &options)
+            guard op == AWS_OP_SUCCESS else {
                 continuationCore.release()
                 continuation.resume(throwing: CommonRunTimeError.crtError(.makeFromLastError()))
                 return
             }
-
         })
     }
 }
