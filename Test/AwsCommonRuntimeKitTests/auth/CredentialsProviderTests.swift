@@ -160,7 +160,6 @@ class CredentialsProviderTests: XCBaseTestCase {
     }
 
     func testCreateAWSCredentialsProviderDefaultChain() async throws {
-        try skipIfLinux()
         do {
             let provider = try CredentialsProvider(source: .defaultChain(bootstrap: getClientBootstrap(),
                     shutdownCallback: getShutdownCallback()),
