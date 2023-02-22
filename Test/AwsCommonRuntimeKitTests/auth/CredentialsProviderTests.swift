@@ -162,15 +162,13 @@ class CredentialsProviderTests: XCBaseTestCase {
     func testCreateAWSCredentialsProviderDefaultChain() async throws {
         try skipIfLinux()
         do {
-            try await withEnvironmentCredentialsClosure {
-                let provider = try CredentialsProvider(source: .defaultChain(bootstrap: getClientBootstrap(),
-                        shutdownCallback: getShutdownCallback()),
-                        allocator: allocator)
+            let provider = try CredentialsProvider(source: .defaultChain(bootstrap: getClientBootstrap(),
+                    shutdownCallback: getShutdownCallback()),
+                    allocator: allocator)
 
-                let credentials = try await provider.getCredentials()
-                XCTAssertNotNil(credentials)
-                assertCredentials(credentials: credentials)
-            }
+            let credentials = try await provider.getCredentials()
+            XCTAssertNotNil(credentials)
+            assertCredentials(credentials: credentials)
         }
         wait(for: [shutdownWasCalled], timeout: 15)
     }
