@@ -70,14 +70,19 @@ private func onResponseHeaderBlockDone(stream: UnsafeMutablePointer<aws_http_str
             """
         )
     }
-    switch HTTPHeaderBlock(rawValue: headerBlock) {
-    case .informational:
-        httpStreamCbData.requestOptions.onInterimResponse?(UInt32(status), httpStreamCbData.headers)
-    case .main:
-        httpStreamCbData.requestOptions.onResponse(UInt32(status), httpStreamCbData.headers)
-    case .trailing:
-        httpStreamCbData.requestOptions.onTrailer?(httpStreamCbData.headers)
+    do {
+        switch HTTPHeaderBlock(rawValue: headerBlock) {
+        case .informational:
+            try httpStreamCbData.requestOptions.onInterimResponse?(UInt32(status), httpStreamCbData.headers)
+        case .main:
+            try httpStreamCbData.requestOptions.onResponse(UInt32(status), httpStreamCbData.headers)
+        case .trailing:
+            try httpStreamCbData.requestOptions.onTrailer?(httpStreamCbData.headers)
+        }
+    } catch {
+        return aws_raise_error(Int32(AWS_ERROR_HTTP_CALLBACK_FAILURE.rawValue))
     }
+    
 
     httpStreamCbData.headers.removeAll()
     return AWS_OP_SUCCESS
@@ -94,8 +99,13 @@ private func onResponseBody(stream: UnsafeMutablePointer<aws_http_stream>?,
 
     let incomingBodyFn = httpStreamCbData.requestOptions.onIncomingBody
     let callbackBytes = Data(bytesNoCopy: bufPtr, count: bufLen, deallocator: .none)
-    incomingBodyFn(callbackBytes)
-    return AWS_OP_SUCCESS
+
+    do {
+        try incomingBodyFn(callbackBytes)
+        return AWS_OP_SUCCESS
+    } catch {
+        return aws_raise_error(Int32(AWS_ERROR_HTTP_CALLBACK_FAILURE.rawValue))
+    }
 }
 
 private func onComplete(stream: UnsafeMutablePointer<aws_http_stream>?,

@@ -156,12 +156,12 @@ class HTTPClientTestFixture: XCBaseTestCase {
         HTTPRequestOptions(request: request,
                 onResponse: { status, headers in
                     response?.pointee.headers += headers
-                    onResponse?(status, headers)
+                    try onResponse?(status, headers)
                 },
 
                 onIncomingBody: { bodyChunk in
                     response?.pointee.body += bodyChunk
-                    onBody?(bodyChunk)
+                    try onBody?(bodyChunk)
                 },
                 onStreamComplete: { result in
                     switch result{
