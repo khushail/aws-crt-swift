@@ -67,6 +67,10 @@ public class HTTP2Stream: HTTPStream {
 
         })
     }
+    
+    deinit {
+        
+    }
 }
 
 private func onWriteComplete(stream: UnsafeMutablePointer<aws_http_stream>?,
